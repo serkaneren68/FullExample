@@ -1,0 +1,37 @@
+<?xml version="1.0" ?>
+<robot name="sahne">
+
+  <material name="silver">
+    <color rgba="0.700 0.700 0.700 1.000"/>
+  </material>
+
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0.0 6.88685208596713 -7.91185208596713" rpy="3.14159 0 0"/>
+      <mass value="310.4675"/> <!-- 10'da bir oranında azaltıldı -->
+      <inertia 
+        ixx="8399.913295" 
+        iyy="31067.620096" 
+        izz="29497.826895" 
+        ixy="0.0" 
+        iyz="-1.119975" 
+        ixz="0.0"/> <!-- 10'da bir oranında azaltıldı -->
+    </inertial>
+
+    <visual>
+      <origin xyz="10 0 0" rpy="3.14159 0 1.570795"/>
+      <geometry>
+        <mesh filename="meshes/base_link_sahne.stl" scale="0.001 0.001 0.001"/> <!-- Ölçek küçültüldü -->
+      </geometry>
+      <material name="silver"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="meshes/base_link_sahne.stl" scale="0.0001 0.0001 0.0001"/> <!-- Ölçek küçültüldü -->
+      </geometry>
+    </collision>
+  </link>
+
+</robot>

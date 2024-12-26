@@ -1,0 +1,109 @@
+<?xml version="1.0" ?>
+<robot name="Stationary2">
+
+<material name="silver">
+  <color rgba="0.700 0.700 0.700 1.000"/>
+</material>
+
+<link name="base_link">
+  <inertial>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <mass value="1177.2759066350427"/>
+    <inertia ixx="63.112479601788095" iyy="63.11247960178815" izz="106.46102483708898" ixy="2.1316282072803006e-14" iyz="2.842170943040401e-14" ixz="3.197442310920451e-14"/>
+  </inertial>
+  <visual>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+    </geometry>
+    <material name="silver"/>
+    <material/>
+  </visual>
+  <collision>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+    </geometry>
+  </collision>
+</link>
+
+<link name="top_link1">
+  <inertial>
+    <origin xyz="0.012583396533743935 -0.00011332204850028615 0.30674596203189336" rpy="0 0 0"/>
+    <mass value="2384.929798533893"/>
+    <inertia ixx="175.79044494004165" iyy="165.97616164439933" izz="255.42395206575873" ixy="-0.07769351133150337" iyz="0.02384278437557441" ixz="-2.3775717701918495"/>
+  </inertial>
+  <visual>
+    <origin xyz="0.110197 0.394703 -0.387866" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="meshes/top_link1.stl" scale="0.001 0.001 0.001"/>
+    </geometry>
+    <material name="silver"/>
+    <material/>
+  </visual>
+  <collision>
+    <origin xyz="0.110197 0.394703 -0.387866" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="meshes/top_link1.stl" scale="0.001 0.001 0.001"/>
+    </geometry>
+  </collision>
+</link>
+
+<link name="gun_link1">
+  <inertial>
+    <origin xyz="-0.32339267254868187 0.05000043011195898 0.693517784144477" rpy="0 0 0"/>
+    <mass value="311.2806104005056"/>
+    <inertia ixx="75.81633022547044" iyy="92.64316652922867" izz="17.716776526858098" ixy="5.338556263723149e-08" iyz="-1.1448344139353139e-07" ixz="34.620175924219325"/>
+  </inertial>
+  <visual>
+    <origin xyz="0.385197 0.454441 -0.782866" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="meshes/gun_link1.stl" scale="0.001 0.001 0.001"/>
+    </geometry>
+    <material name="silver"/>
+    <material/>
+  </visual>
+  <collision>
+    <origin xyz="0.385197 0.454441 -0.782866" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="meshes/gun_link1.stl" scale="0.001 0.001 0.001"/>
+    </geometry>
+  </collision>
+</link>
+
+<joint name="Revolute_8" type="continuous">
+  <origin xyz="-0.110197 -0.394703 0.387866" rpy="0 0 0"/>
+  <parent link="base_link"/>
+  <child link="top_link1"/>
+  <axis xyz="-0.0 0.0 1.0"/>
+</joint>
+<transmission name="Revolute_8_tran">
+  <type>transmission_interface/SimpleTransmission</type>
+  <joint name="Revolute_8">
+    <hardwareInterface>PositionJointInterface</hardwareInterface>
+  </joint>
+  <actuator name="Revolute_8_actr">
+    <hardwareInterface>PositionJointInterface</hardwareInterface>
+    <mechanicalReduction>1</mechanicalReduction>
+  </actuator>
+</transmission>
+
+<joint name="Revolute_9" type="revolute">
+  <origin xyz="-0.275 -0.059738 0.395" rpy="0 0 0"/>
+  <parent link="top_link1"/>
+  <child link="gun_link1"/>
+  <axis xyz="-0.0 -1.0 0.0"/>
+  <limit upper="1.134464" lower="-1.134464" effort="100" velocity="100"/>
+</joint>
+<transmission name="Revolute_9_tran">
+  <type>transmission_interface/SimpleTransmission</type>
+  <joint name="Revolute_9">
+    <hardwareInterface>PositionJointInterface</hardwareInterface>
+  </joint>
+  <actuator name="Revolute_9_actr">
+    <hardwareInterface>PositionJointInterface</hardwareInterface>
+    <mechanicalReduction>1</mechanicalReduction>
+  </actuator>
+</transmission>
+
+</robot>
