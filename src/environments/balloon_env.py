@@ -93,68 +93,6 @@ class BalloonShooterEnv(gym.Env):
         # End if no balloons left or max steps reached
         return len(self.balloons) == 0 or self.episode_steps >= self.max_episode_steps
     
-    def compute_reward(self):
-        reward = 0
-        
-        # Zaman cezası
-        reward += self.TIME_PENALTY
-        
-        # Balon vuruş kontrolü ve ödülleri
-        for bullet in self.bullets[:]:  # Tüm mermileri kontrol et
-            bullet_pos = bullet.get_position()
-            
-            # Mermi sahne dışına çıktı mı kontrol et
-            if bullet.is_out_of_bounds():
-                self.bullets_missed += 1
-                reward += self.MISS_PENALTY
-                continue
-            
-            # Balon vuruş kontrolü
-            for balloon in self.balloons[:]:
-                balloon_pos = np.array(p.getBasePositionAndOrientation(balloon)[0])
-                distance = np.linalg.norm(bullet_pos - balloon_pos)
-                
-                if distance < (BALLOON_RADIUS + BULLET_RADIUS):
-                    # Temel vuruş ödülü
-                    hit_reward = self.HIT_REWARD
-                    reward += hit_reward
-                    
-                    # Uzaklık bonusu (mermi başlangıç pozisyonuna göre)
-                    shot_distance = np.linalg.norm(bullet.start_pos - balloon_pos)
-                    distance_multiplier = min(shot_distance / 10.0, 2.0)  # Max 2x bonus
-                    distance_bonus = self.DISTANCE_BONUS * distance_multiplier
-                    reward += distance_bonus
-                    
-                    # Combo bonus
-                    current_time = self.episode_steps
-                    combo_bonus = 0
-                    if current_time - self.last_hit_time <= 10:  # 10 adım içinde vuruş
-                        self.consecutive_hits += 1
-                        combo_bonus = self.COMBO_BONUS * self.consecutive_hits
-                        reward += combo_bonus
-                    else:
-                        self.consecutive_hits = 1
-                    
-                    self.last_hit_time = current_time
-                    self.stats["balloons_popped"] += 1
-                    
-                    # Balonu ve mermiyi kaldır
-                    self.balloons.remove(balloon)
-                    self.bullets.remove(bullet)
-                    p.removeBody(balloon)
-                    bullet.remove()
-                    
-                    # Score'u güncelle
-                    total_hit_reward = hit_reward + distance_bonus + combo_bonus
-                    self.stats["score"] = reward  # Score'u toplam reward'a eşitle
-                    
-        return reward
-
-    def _is_bullet_out_of_bounds(self, bullet_pos):
-        # Sahne sınırlarını kontrol et
-        bounds = 20  # Sahne sınırları
-        return any(abs(coord) > bounds for coord in bullet_pos)
-
     def reset(self):
         p.resetSimulation()
         p.configureDebugVisualizer(p.COV_ENABLE_RENDERING, 0)
@@ -182,6 +120,11 @@ class BalloonShooterEnv(gym.Env):
         self.balloons = []
         self.balloon_targets = {}
         
+        # Reset reward tracking variables
+        self.consecutive_hits = 0
+        self.last_hit_time = 0
+        self.bullets_missed = 0
+        
         # Reset stats
         self.stats["score"] = 0
         self.stats["remaining_balloons"] = 0
@@ -189,6 +132,9 @@ class BalloonShooterEnv(gym.Env):
         self.stats["balloons_popped"] = 0
         self.stats["current_episode"] = self.current_episode
         self.stats["episode_steps"] = self.episode_steps
+        
+        # Reset frame stack
+        self.frames = []
         
         # Add initial balloons
         self.add_random_balloons(5)  # Start with 5 balloons
@@ -330,11 +276,76 @@ class BalloonShooterEnv(gym.Env):
             
             p.stepSimulation()
             self.move_balloons()
-            self.move_bullets()
             
             # Add time penalty
             total_reward += self.TIME_PENALTY
             self.stats["score"] += self.TIME_PENALTY
+            
+            # Move bullets and check collisions
+            for bullet in self.bullets[:]:  # Use slice to allow modification during iteration
+                try:
+                    # Move bullet and get new position
+                    new_position = bullet.move()
+                    
+                    # Check if bullet is out of bounds
+                    if bullet.is_out_of_bounds():
+                        bullet.remove()
+                        self.bullets.remove(bullet)
+                        total_reward += self.MISS_PENALTY
+                        self.stats["score"] += self.MISS_PENALTY
+                        continue
+                    
+                    # Check for collisions with balloons
+                    for balloon_id in self.balloons[:]:  # Use slice to allow modification during iteration
+                        try:
+                            balloon_position, _ = p.getBasePositionAndOrientation(balloon_id)
+                            distance = np.linalg.norm(np.array(new_position) - np.array(balloon_position))
+                            if distance < (BALLOON_RADIUS + BULLET_RADIUS):  # Hit detection radius
+                                print(f"Balloon {balloon_id} hit!")
+                                
+                                # Calculate rewards
+                                hit_reward = self.HIT_REWARD
+                                total_reward += hit_reward
+                                
+                                # Distance bonus
+                                shot_distance = np.linalg.norm(bullet.start_pos - np.array(balloon_position))
+                                distance_multiplier = min(shot_distance / 10.0, 2.0)  # Max 2x bonus
+                                distance_bonus = self.DISTANCE_BONUS * distance_multiplier
+                                total_reward += distance_bonus
+                                
+                                # Combo bonus
+                                combo_bonus = 0
+                                if self.episode_steps - self.last_hit_time <= 10:  # 10 adım içinde vuruş
+                                    self.consecutive_hits += 1
+                                    combo_bonus = self.COMBO_BONUS * self.consecutive_hits
+                                    total_reward += combo_bonus
+                                else:
+                                    self.consecutive_hits = 1
+                                
+                                # Update timing and stats
+                                self.last_hit_time = self.episode_steps
+                                self.stats["balloons_popped"] += 1
+                                self.stats["score"] += (hit_reward + distance_bonus + combo_bonus)
+                                self.stats["remaining_balloons"] = len(self.balloons) - 1
+                                
+                                # Remove balloon and bullet
+                                p.removeBody(balloon_id)
+                                self.balloons.remove(balloon_id)
+                                del self.balloon_targets[balloon_id]
+                                bullet.remove()
+                                self.bullets.remove(bullet)
+                                break
+                                
+                        except Exception as e:
+                            print(f"Error in balloon collision check: {e}")
+                            continue
+                except Exception as e:
+                    print(f"Error in bullet movement: {e}")
+                    try:
+                        bullet.remove()
+                        self.bullets.remove(bullet)
+                    except:
+                        pass
             
             # Check if episode is done
             done = self.is_done()

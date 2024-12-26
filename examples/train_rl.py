@@ -9,48 +9,71 @@ class TrainingCallback(BaseCallback):
     def __init__(self, verbose=0):
         super().__init__(verbose)
         self.start_time = time.time()
-        self.best_reward = -float('inf')
-        self.episode_count = 0
-        self.last_bullets_used = 0
-        self.last_balloons_popped = 0
+        self.episode_rewards = {}  # episode_number -> total_reward
+        self.episode_lengths = {}  # episode_number -> length
+        self.episode_bullets = {}  # episode_number -> bullets_used
+        self.episode_hits = {}    # episode_number -> balloons_popped
+        self.current_episode_bullets = 0
+        self.current_episode_hits = 0
         
     def _on_step(self):
         if self.n_calls % 1000 == 0:  # Log every 1000 steps
             elapsed_time = int(time.time() - self.start_time)
             stats = self.training_env.get_attr('stats')[0]
+            current_episode = stats['current_episode']
             
-            # Calculate hit rate for the current interval
-            bullets_used_interval = stats['bullets_used'] - self.last_bullets_used
-            balloons_popped_interval = stats['balloons_popped'] - self.last_balloons_popped
-            hit_rate = (balloons_popped_interval / bullets_used_interval * 100) if bullets_used_interval > 0 else 0
-            
-            # Update last values
-            self.last_bullets_used = stats['bullets_used']
-            self.last_balloons_popped = stats['balloons_popped']
-            
-            # Get episode info if available
-            episode_info = self.locals.get('infos')[0].get('episode')
-            if episode_info:
-                episode_reward = episode_info['r']
-                episode_length = episode_info['l']
-                if episode_reward > self.best_reward:
-                    self.best_reward = episode_reward
+            # Episode bilgilerini al
+            episode_info = self.locals.get('infos')[0]
+            if 'episode' in episode_info:
+                # Episode bitti, istatistikleri kaydet
+                self.episode_rewards[current_episode] = episode_info['episode']['r']
+                self.episode_lengths[current_episode] = episode_info['episode']['l']
+                self.episode_bullets[current_episode] = stats['bullets_used'] - self.current_episode_bullets
+                self.episode_hits[current_episode] = stats['balloons_popped'] - self.current_episode_hits
+                
+                # Yeni episode için sayaçları güncelle
+                self.current_episode_bullets = stats['bullets_used']
+                self.current_episode_hits = stats['balloons_popped']
             
             print("\n=== Training Progress ===")
             print(f"Steps: {self.n_calls}")
-            print(f"Episode: {stats['current_episode']}")
             print(f"Time: {elapsed_time}s")
-            print(f"Current Score/Reward: {stats['score']:.2f}")
-            print(f"Best Reward: {self.best_reward:.2f}")
-            print(f"Recent Performance:")
-            print(f"  - Balloons Popped: +{balloons_popped_interval}")
-            print(f"  - Bullets Used: +{bullets_used_interval}")
-            print(f"  - Hit Rate: {hit_rate:.1f}%")
-            print(f"Total Stats:")
-            print(f"  - Total Balloons Popped: {stats['balloons_popped']}")
-            print(f"  - Total Bullets Used: {stats['bullets_used']}")
-            print(f"  - Overall Hit Rate: {(stats['balloons_popped'] / stats['bullets_used'] * 100) if stats['bullets_used'] > 0 else 0:.1f}%")
-            print(f"  - Remaining Balloons: {stats['remaining_balloons']}")
+            print(f"Current Episode: {current_episode}")
+            
+            if current_episode > 0:
+                # Son biten episode'un istatistikleri
+                last_episode = max(self.episode_rewards.keys()) if self.episode_rewards else 0
+                if last_episode > 0:
+                    print(f"\nLast Completed Episode ({last_episode}):")
+                    print(f"  - Length: {self.episode_lengths[last_episode]} steps")
+                    print(f"  - Total Reward: {self.episode_rewards[last_episode]:.2f}")
+                    bullets = self.episode_bullets[last_episode]
+                    hits = self.episode_hits[last_episode]
+                    hit_rate = (hits / bullets * 100) if bullets > 0 else 0
+                    print(f"  - Bullets Used: {bullets}")
+                    print(f"  - Balloons Hit: {hits}")
+                    print(f"  - Hit Rate: {hit_rate:.1f}%")
+                
+                # Mevcut episode'un devam eden istatistikleri
+                print(f"\nCurrent Episode Progress:")
+                current_bullets = stats['bullets_used'] - self.current_episode_bullets
+                current_hits = stats['balloons_popped'] - self.current_episode_hits
+                current_hit_rate = (current_hits / current_bullets * 100) if current_bullets > 0 else 0
+                print(f"  - Steps: {stats['episode_steps']}")
+                print(f"  - Bullets Used: {current_bullets}")
+                print(f"  - Balloons Hit: {current_hits}")
+                print(f"  - Current Hit Rate: {current_hit_rate:.1f}%")
+                print(f"  - Remaining Balloons: {stats['remaining_balloons']}")
+            
+            print("\nOverall Training Stats:")
+            total_bullets = stats['bullets_used']
+            total_hits = stats['balloons_popped']
+            overall_hit_rate = (total_hits / total_bullets * 100) if total_bullets > 0 else 0
+            print(f"  - Total Episodes Completed: {len(self.episode_rewards)}")
+            print(f"  - Total Steps: {self.n_calls}")
+            print(f"  - Total Bullets Used: {total_bullets}")
+            print(f"  - Total Balloons Hit: {total_hits}")
+            print(f"  - Overall Hit Rate: {overall_hit_rate:.1f}%")
             print("=======================\n")
         return True
 
