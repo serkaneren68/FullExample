@@ -14,7 +14,13 @@ class BalloonShooterEnv(gym.Env):
     
     def __init__(self):
         p.connect(p.GUI)
-        p.resetDebugVisualizerCamera(cameraDistance=1.5, cameraYaw=0, cameraPitch=-40, cameraTargetPosition=[0.55, -0.35, 0.2])
+        # Set initial debug camera view
+        p.resetDebugVisualizerCamera(
+            cameraDistance=15.0,
+            cameraYaw=45,
+            cameraPitch=-30,
+            cameraTargetPosition=[5, 0, 0]
+        )
         self.action_space = spaces.Box(
             low=np.array([-1, -1, 0],dtype=np.float32),
             high=np.array([1, 1, 1],dtype=np.float32),
@@ -204,6 +210,33 @@ class BalloonShooterEnv(gym.Env):
             lifeTime=1/240,
         )
 
+        # Set camera position and orientation
+        camera_position = [-5, 0, 5]  # Stationary position
+        camera_target = [10, 0, 0]    # Looking at the center of the world
+        up_vector = [1, 0, 0]         # World Y-axis as the up vector
+
+        # Compute view and projection matrices
+        view_matrix = p.computeViewMatrix(
+            cameraEyePosition=camera_position,
+            cameraTargetPosition=camera_target,
+            cameraUpVector=up_vector,
+        )
+        proj_matrix = p.computeProjectionMatrixFOV(
+            fov=60,
+            aspect=float(960) / 720,
+            nearVal=0.1,
+            farVal=100.0
+        )
+
+        # Capture camera image
+        (_, _, px, _, _) = p.getCameraImage(
+            width=960,
+            height=720,
+            viewMatrix=view_matrix,
+            projectionMatrix=proj_matrix,
+            renderer=p.ER_BULLET_HARDWARE_OPENGL
+        )
+
         # Display stats
         p.addUserDebugText(
             f"Score: {self.stats['score']}", 
@@ -232,4 +265,9 @@ class BalloonShooterEnv(gym.Env):
             textColorRGB=[0, 0, 0], 
             textSize=1.2, 
             lifeTime=1/240
-        ) 
+        )
+
+        if mode == 'rgb_array':
+            rgb_array = np.array(px, dtype=np.uint8)
+            rgb_array = np.reshape(rgb_array, (720, 960, 4))[:, :, :3]  # Drop alpha channel
+            return rgb_array 
