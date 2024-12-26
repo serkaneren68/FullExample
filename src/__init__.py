@@ -1,3 +1,3 @@
 """
-Balloon Shooter Environment Package
+Balloon Shooter package
 """ 
